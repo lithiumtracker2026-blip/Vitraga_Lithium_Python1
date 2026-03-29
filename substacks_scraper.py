@@ -42,7 +42,7 @@ def wait_and_find_element(driver, by, value, timeout=10):
     try:
         element = WebDriverWait(driver, timeout).until(
             EC.presence_of_element_located((by, value))
-        )1
+        )
         return element
     except TimeoutException:
         return None
