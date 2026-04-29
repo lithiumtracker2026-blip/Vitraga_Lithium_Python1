@@ -13,6 +13,14 @@ RUN apt-get update && apt-get install -y \
     unzip \
     chromium \
     chromium-driver \
+    libgtk-3-0 \
+    libnss3 \
+    libgconf-2-4 \
+    libx11-6 \
+    libxext6 \
+    libxrender1 \
+    fonts-liberation \
+    xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/

@@ -18,23 +18,35 @@ import logging
 
 def init_driver():
     """Initialize Chrome WebDriver"""
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-software-rasterizer")
-    chrome_options.add_argument("--disable-setuid-sandbox")
-    chrome_options.add_argument("--window-size=1024,768")
-    
-    chrome_options.binary_location = "/usr/bin/chromium"
-    service = Service("/usr/bin/chromedriver")
-    
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    driver.set_page_load_timeout(30)
-    driver.implicitly_wait(5)
-    return driver
+    try:
+        chrome_options = Options()
+        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-software-rasterizer")
+        chrome_options.add_argument("--disable-setuid-sandbox")
+        chrome_options.add_argument("--window-size=1024,768")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_argument("--disable-plugins")
+        chrome_options.add_argument("--no-first-run")
+        chrome_options.add_argument("--no-default-browser-check")
+        
+        # Set binary location
+        chrome_options.binary_location = "/usr/bin/chromium"
+        
+        # Initialize service
+        service = Service("/usr/bin/chromedriver")
+        
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        driver.set_page_load_timeout(30)
+        driver.implicitly_wait(5)
+        logging.info("Chrome WebDriver initialized successfully")
+        return driver
+    except Exception as e:
+        logging.error(f"Failed to initialize Chrome WebDriver: {str(e)}")
+        return None
 
 
 def wait_and_find_element(driver, by, value, timeout=10):
@@ -59,10 +71,12 @@ def scrape_substack_lithium_posts(cursor=None, max_posts=10):
     Returns:
         list: List of dictionaries containing scraped data
     """
-    driver = init_driver()
-    if not driver:
-        logging.error("Failed to initialize WebDriver")
-        return []
+    driver = None
+    try:
+        driver = init_driver()
+        if not driver:
+            logging.error("Failed to initialize WebDriver - Substack scraping will be skipped")
+            return []
     
     try:
         # Navigate to the search page
