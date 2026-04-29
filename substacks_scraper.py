@@ -63,112 +63,83 @@ def wait_and_find_element(driver, by, value, timeout=10):
 def scrape_substack_lithium_posts(cursor=None, max_posts=10):
     """
     Scrapes lithium-related posts from Substack.
-    
-    Parameters:
-        cursor (psycopg2.cursor, optional): Database cursor for checking duplicates
-        max_posts (int): Maximum number of posts to scrape
-    
-    Returns:
-        list: List of dictionaries containing scraped data
     """
     driver = None
+    scraped_data = []
     try:
         driver = init_driver()
         if not driver:
             logging.error("Failed to initialize WebDriver - Substack scraping will be skipped")
             return []
-    
-    try:
+
         # Navigate to the search page
         print("Navigating to Substack search page...")
         search_url = "https://substack.com/search/lithium?sort=new&searching=all_posts&include_recommendations=false"
         driver.get(search_url)
-        
+
         # Wait for the search results to load
         print("Waiting for search results...")
         wait_and_find_element(driver, By.CLASS_NAME, "search-result")
-        time.sleep(2)  # Additional small wait for dynamic content
+        time.sleep(2)
 
         # Scroll to load more content
         print("Loading more content...")
-        for _ in range(3):  # Scroll 3 times to load more content
+        for _ in range(3):
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(1)
 
-        # Find article links with better selector
+        # Find article links
         print("Finding article links...")
         links = driver.find_elements(By.CSS_SELECTOR, "a.post-preview-title")
         if not links:
             links = driver.find_elements(By.CSS_SELECTOR, "a[href*='/p/']")
-        
+
         print(f"Found {len(links)} links")
 
         # Extract unique URLs
-        urls = []
-        seen_urls = set()
+        urls, seen_urls = [], set()
         for link in links:
-            try:
-                url = link.get_attribute('href')
-                if url and url not in seen_urls and '/p/' in url:
-                    urls.append(url)
-                    seen_urls.add(url)
-                    if len(urls) >= max_posts:
-                        break
-            except Exception as e:
-                continue
+            url = link.get_attribute('href')
+            if url and url not in seen_urls and '/p/' in url:
+                urls.append(url)
+                seen_urls.add(url)
+                if len(urls) >= max_posts:
+                    break
 
         print(f"Found {len(urls)} unique URLs to scrape")
 
-        scraped_data = []
+        # Scrape each article
         for url in urls:
             try:
                 print(f"Scraping URL: {url}")
                 driver.get(url)
-                
-                # Wait for article content to load
+
                 article = wait_and_find_element(driver, By.TAG_NAME, "article", timeout=10)
                 if not article:
                     print("Article content not found, skipping...")
                     continue
 
-                # Extract title (try multiple selectors)
+                # Title
                 title = None
-                title_selectors = [
-                    "h1.post-title",
-                    "h1.title",
-                    "h1"
-                ]
-                for selector in title_selectors:
-                    try:
-                        title_elem = wait_and_find_element(driver, By.CSS_SELECTOR, selector, timeout=5)
-                        if title_elem:
-                            title = title_elem.text.strip()
-                            break
-                    except:
-                        continue
+                for selector in ["h1.post-title", "h1.title", "h1"]:
+                    title_elem = wait_and_find_element(driver, By.CSS_SELECTOR, selector, timeout=5)
+                    if title_elem:
+                        title = title_elem.text.strip()
+                        break
 
-                # Extract content
-                content = None
-                try:
-                    content_elem = wait_and_find_element(driver, By.CSS_SELECTOR, "div.available-content", timeout=5)
-                    if not content_elem:
-                        content_elem = article
-                    content = content_elem.text.strip()
-                except:
-                    print("Failed to extract content")
+                # Content
+                content_elem = wait_and_find_element(driver, By.CSS_SELECTOR, "div.available-content", timeout=5) or article
+                content = content_elem.text.strip() if content_elem else ""
 
-                # Extract date
+                # Date
                 date = datetime.now().strftime("%Y-%m-%d")
-                try:
-                    date_elem = wait_and_find_element(driver, By.TAG_NAME, "time", timeout=5)
-                    if date_elem:
-                        date_str = date_elem.get_attribute("datetime")
-                        if date_str:
-                            date = date_str.split("T")[0]
-                except:
-                    print("Using default date")
+                date_elem = wait_and_find_element(driver, By.TAG_NAME, "time", timeout=5)
+                if date_elem:
+                    date_str = date_elem.get_attribute("datetime")
+                    if date_str:
+                        date = date_str.split("T")[0]
 
-                # Extract image URL
+                # Image
                 image_url = ""
                 try:
                     img_elem = article.find_element(By.TAG_NAME, "img")
@@ -178,18 +149,17 @@ def scrape_substack_lithium_posts(cursor=None, max_posts=10):
                     pass
 
                 if title and content:
-                    article_data = {
+                    scraped_data.append({
                         "title": title,
                         "url": url,
                         "content": content,
-                        "subtitle": "",  # Simplified for now
+                        "subtitle": "",
                         "image_url": image_url,
                         "date": date
-                    }
-                    scraped_data.append(article_data)
+                    })
                     print(f"Successfully scraped: {title[:50]}...")
                 else:
-                    print(f"Skipping article due to missing title or content")
+                    print("Skipping article due to missing title or content")
 
             except Exception as e:
                 print(f"Error scraping URL {url}: {str(e)}")
@@ -197,13 +167,14 @@ def scrape_substack_lithium_posts(cursor=None, max_posts=10):
 
         print(f"Successfully scraped {len(scraped_data)} Substack posts")
         return scraped_data
-        
+
     except Exception as e:
         print(f"Error in scraping Substack: {str(e)}")
         return []
     finally:
         if driver:
             driver.quit()
+
 
 
 def insert_substack_posts_to_db(cursor, connection, posts):
