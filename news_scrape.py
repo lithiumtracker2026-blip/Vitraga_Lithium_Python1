@@ -9,38 +9,72 @@ from urllib.parse import urljoin
 import os
 import time
 import random
+import logging
 from selenium.webdriver.common.action_chains import ActionChains
 from datetime import datetime
 from insert_queries import check_url_exists
 
+try:
+    from webdriver_manager.chrome import ChromeDriverManager
+except ImportError:
+    ChromeDriverManager = None
+
 
 def init_driver():
     """Initialize Chrome WebDriver"""
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-software-rasterizer")
-    chrome_options.add_argument("--disable-setuid-sandbox")
-    chrome_options.add_argument("--window-size=1024,768")
-    
-    chrome_options.binary_location = "/usr/bin/chromium"
-    service = Service("/usr/bin/chromedriver")
-    
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    driver.set_page_load_timeout(30)
-    driver.implicitly_wait(5)
-    return driver
+    try:
+        chrome_options = Options()
+        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-software-rasterizer")
+        chrome_options.add_argument("--disable-setuid-sandbox")
+        chrome_options.add_argument("--window-size=1024,768")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_argument("--disable-plugins")
+        chrome_options.add_argument("--no-first-run")
+        
+        # Try to use webdriver_manager first (best for containers)
+        if ChromeDriverManager:
+            try:
+                driver = webdriver.Chrome(
+                    service=Service(ChromeDriverManager().install()),
+                    options=chrome_options
+                )
+                logging.info("Chrome WebDriver initialized with webdriver_manager")
+            except Exception as e:
+                logging.warning(f"webdriver_manager failed: {e}, trying direct path...")
+                # Fallback to direct paths if webdriver_manager fails
+                chrome_options.binary_location = "/usr/bin/chromium"
+                service = Service("/usr/bin/chromedriver")
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+        else:
+            # Fallback if webdriver_manager not available
+            chrome_options.binary_location = "/usr/bin/chromium"
+            service = Service("/usr/bin/chromedriver")
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+        
+        driver.set_page_load_timeout(30)
+        driver.implicitly_wait(5)
+        return driver
+    except Exception as e:
+        logging.error(f"Failed to initialize Chrome WebDriver: {str(e)}")
+        return None
 
 
 def scrape_latest_articles_from_mining_site(cursor):
     """
     Scrape the latest articles from the "mining.com" website related to copper.
     """
-    driver = init_driver()
-    if not driver:
+    try:
+        driver = init_driver()
+        if not driver:
+            logging.error("Failed to initialize Chrome WebDriver for Mining.com scraping")
+            return []
+    except Exception as e:
+        logging.error(f"Error initializing driver for Mining.com: {e}")
         return []
 
     base_url = "https://www.mining.com/?s=copper"

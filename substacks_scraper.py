@@ -15,6 +15,11 @@ import re
 import os
 import logging
 
+try:
+    from webdriver_manager.chrome import ChromeDriverManager
+except ImportError:
+    ChromeDriverManager = None
+
 
 def init_driver():
     """Initialize Chrome WebDriver"""
@@ -33,16 +38,28 @@ def init_driver():
         chrome_options.add_argument("--no-first-run")
         chrome_options.add_argument("--no-default-browser-check")
         
-        # Set binary location
-        chrome_options.binary_location = "/usr/bin/chromium"
+        # Try to use webdriver_manager first (best for containers)
+        if ChromeDriverManager:
+            try:
+                driver = webdriver.Chrome(
+                    service=Service(ChromeDriverManager().install()),
+                    options=chrome_options
+                )
+                logging.info("Chrome WebDriver initialized with webdriver_manager")
+            except Exception as e:
+                logging.warning(f"webdriver_manager failed: {e}, trying direct path...")
+                # Fallback to direct paths if webdriver_manager fails
+                chrome_options.binary_location = "/usr/bin/chromium"
+                service = Service("/usr/bin/chromedriver")
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+        else:
+            # Fallback if webdriver_manager not available
+            chrome_options.binary_location = "/usr/bin/chromium"
+            service = Service("/usr/bin/chromedriver")
+            driver = webdriver.Chrome(service=service, options=chrome_options)
         
-        # Initialize service
-        service = Service("/usr/bin/chromedriver")
-        
-        driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.set_page_load_timeout(30)
         driver.implicitly_wait(5)
-        logging.info("Chrome WebDriver initialized successfully")
         return driver
     except Exception as e:
         logging.error(f"Failed to initialize Chrome WebDriver: {str(e)}")
