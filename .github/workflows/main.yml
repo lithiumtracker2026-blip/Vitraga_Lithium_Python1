@@ -1,4 +1,4 @@
-name: Copper Stock Pipeline
+name: Lithium Stock Pipeline
 
 on:
   schedule:
@@ -8,6 +8,8 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout code
@@ -16,7 +18,7 @@ jobs:
       - name: Cache apt packages
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: chromium-browser chromium-chromedriver libgtk-3-0 libnss3 libgconf-2-4 libx11-6 libxext6 libxrender1 fonts-liberation xdg-utils libpq-dev build-essential
+          packages: chromium-browser chromium-chromedriver libgtk-3-0 libnss3 libx11-6 libxext6 libxrender1 fonts-liberation xdg-utils libpq-dev build-essential
           version: 1.0
 
       - name: Install system dependencies
@@ -27,7 +29,6 @@ jobs:
             chromium-chromedriver \
             libgtk-3-0 \
             libnss3 \
-            libgconf-2-4 \
             libx11-6 \
             libxext6 \
             libxrender1 \
