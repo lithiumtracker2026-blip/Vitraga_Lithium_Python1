@@ -15,28 +15,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache apt packages
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: chromium-browser chromium-chromedriver libgtk-3-0 libnss3 libx11-6 libxext6 libxrender1 fonts-liberation xdg-utils libpq-dev build-essential
-          version: 1.0
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            chromium-browser \
-            chromium-chromedriver \
-            libgtk-3-0 \
-            libnss3 \
-            libx11-6 \
-            libxext6 \
-            libxrender1 \
-            fonts-liberation \
-            xdg-utils \
-            libpq-dev \
-            build-essential
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -47,6 +25,19 @@ jobs:
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install system dependencies (lightweight)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libpq-dev \
+            build-essential \
+            libnss3 \
+            libx11-6 \
+            libxext6 \
+            libxrender1 \
+            fonts-liberation \
+            xdg-utils
 
       - name: Install Python dependencies
         run: pip install --no-cache-dir -r requirements.txt
